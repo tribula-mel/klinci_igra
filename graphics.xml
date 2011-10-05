@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <graphics>
-	<sprite frame_number="1" name="background">
+	<sprite frame_number="1" frame_rate="0" name="background">
 		<position x="0" y="0"/>
-		<attributes moveable="0" intelligence="0" frame_rate="0"/>
+		<attributes moveable="0" intelligence="0"/>
 		<frame>
 			<file name="gfx/background.png"/>
 			<contour>
@@ -10,9 +10,9 @@
 			</contour>
 		</frame>
 	</sprite>
-	<sprite frame_number="1" name="tree">
+	<sprite frame_number="1" frame_rate="0" name="tree">
 		<position x="100" y="100"/>
-		<attributes moveable="0" intelligence="0" frame_rate="0"/>
+		<attributes moveable="0" intelligence="0"/>
 		<frame>
 			<file name="gfx/tree.png"/>
 			<contour>
@@ -20,9 +20,9 @@
 			</contour>
 		</frame>
 	</sprite>
-	<sprite frame_number="1" name="rock">
+	<sprite frame_number="1" frame_rate="0" name="rock">
 		<position x="50" y="50"/>
-		<attributes moveable="0" intelligence="0" frame_rate="0"/>
+		<attributes moveable="0" intelligence="0"/>
 		<frame>
 			<file name="gfx/rock.png"/>
 			<contour>
@@ -31,9 +31,9 @@
 			</contour>
 		</frame>
 	</sprite>
-	<sprite frame_number="2" name="smurf_left">
+	<sprite frame_number="2" frame_rate="100" name="smurf_left">
 		<position x="50" y="50"/>
-		<attributes moveable="0" intelligence="0" frame_rate="100"/>
+		<attributes moveable="0" intelligence="0"/>
 		<frame>
 			<file name="gfx/anim/smurf_left_first_frame.png"/>
 			<contour>
@@ -47,9 +47,9 @@
 			</contour>
 		</frame>
 	</sprite>
-	<sprite frame_number="2" name="smurf_right">
+	<sprite frame_number="2" frame_rate="100" name="smurf_right">
 		<position x="50" y="50"/>
-		<attributes moveable="0" intelligence="0" frame_rate="100"/>
+		<attributes moveable="0" intelligence="0"/>
 		<frame>
 			<file name="gfx/anim/smurf_right_first_frame.png"/>
 			<contour>

@@ -10,15 +10,16 @@
 #include "renderer.h"
 #include "common.h"
 
-static s32 sprite_renderer(sprite *sp, SDL_Surface *area);
+static s32 sprite_renderer(scene *sc, SDL_Surface *area);
 static s32 sprite_constructor(sprite *sp);
 static s32 sprite_collision(sprite *sp);
-static s32 *xml_graphics_processor(xmlNode *node, sprite *sp);
-static void xml_contour_processor(xmlNode *node, sprite *sp);
-static void xml_frame_processor(xmlNode *node, sprite *sp);
-static sprite *xml_sprite_processor(xmlNode *node);
+static s32 xml_contour_processor(xmlNode *node, sprite_frame *frame);
+static s32 xml_frame_processor(xmlNode *node, sprite *sp);
+static s32 xml_sprite_processor(xmlNode *node, sprite *sp);
+static s32 xml_graphics_processor(xmlNode *node, scene *sc);
+static scene *xml_node_processor(xmlNode *node);
 
-static void xml_contour_processor(xmlNode *node, sprite_frame *frame)
+static s32 xml_contour_processor(xmlNode *node, sprite_frame *frame)
 {
 	xmlNode *cur_node = NULL;
 	xmlChar *property;
@@ -28,7 +29,7 @@ static void xml_contour_processor(xmlNode *node, sprite_frame *frame)
 	contour = malloc(sizeof(sprite_contour));
 	if (contour == NULL) {
 		printf("malloc failure\n");
-		return;
+		exit(EXIT_FAILURE);
 	}
 	frame->contour = contour;
 	contour_prev = contour;
@@ -67,26 +68,27 @@ static void xml_contour_processor(xmlNode *node, sprite_frame *frame)
 			if (contour == NULL) {
 				/* TODO: fix the leak */
 				printf("malloc failure\n");
-				return;
+				exit(EXIT_FAILURE);
 			}
 			contour_prev->next = contour;
 			contour->next = NULL;
 			contour_prev = contour;
 		}
 	}
+
+	return EXIT_SUCCESS;
 }
 
-static void xml_frame_processor(xmlNode *node, sprite *sp)
+static s32 xml_frame_processor(xmlNode *node, sprite *sp)
 {
 	xmlNode *cur_node = NULL;
-	xmlChar *property;
 	sprite_frame *frame = NULL;
 	sprite_frame *pframe = NULL;
 
 	frame = malloc(sp->frame_number * sizeof(sprite_frame));
 	if (frame == NULL) {
 		printf("malloc failure\n");
-		return;
+		exit(EXIT_FAILURE);
 	}
 	sp->frame = frame;
 	frame->contour = NULL;
@@ -103,21 +105,14 @@ static void xml_frame_processor(xmlNode *node, sprite *sp)
 			}
 		}
 	}
+
+	return EXIT_SUCCESS;
 }
 
-static sprite *xml_sprite_processor(xmlNode *node)
+static s32 xml_sprite_processor(xmlNode *node, sprite *sp)
 {
 	xmlNode *cur_node = NULL;
 	xmlChar *property;
-	sprite *sp = NULL;
-
-	sp = malloc(sizeof(sprite));
-	if (sp == NULL) {
-		printf("malloc failure\n");
-		return NULL;
-	}
-
-	sp->frame = NULL;
 
 	for (cur_node = node; cur_node; cur_node = cur_node->next) {
 		if (cur_node->type == XML_ELEMENT_NODE) {
@@ -145,28 +140,72 @@ static sprite *xml_sprite_processor(xmlNode *node)
 				printf("intelligence[%d]\n", sp->attrs.intelligence);
 				xmlFree(property);
 			}
-			if (!xmlStrcmp(cur_node->name, (u8 *)"attributes")) {
-				property = xmlGetProp(cur_node, (u8 *)"frame_rate");
-				sp->attrs.frame_rate = atoi((char *)property);
-				printf("frame_rate[%d]\n", sp->attrs.frame_rate);
-				xmlFree(property);
-			}
 			if (!xmlStrcmp(cur_node->name, (u8 *)"frame")) {
 				xml_frame_processor(cur_node->children, sp);
 			}
 		}
 	}
 
-	return sp;
+	return EXIT_SUCCESS;
 }
 
-static s32 *xml_graphics_processor(xmlNode *node, sprite *sp)
+static s32 xml_graphics_processor(xmlNode *node, scene *sc)
 {
 	xmlNode *cur_node = NULL;
+	xmlChar *property;
+	sprite *sp = NULL;
+	sprite **_static = &sc->sp_static;
+	sprite **_dynamic = &sc->sp_dynamic;
+	u32 frame_rate = 0;
 
 	for (cur_node = node; cur_node; cur_node = cur_node->next) {
 		if (cur_node->type == XML_ELEMENT_NODE) {
 			printf("node name[%s]\n", cur_node->name);
+			if (!xmlStrcmp(cur_node->name, (u8 *)"sprite")) {
+				property = xmlGetProp(cur_node, (u8 *)"frame_rate");
+				frame_rate = atoi((char *)property);
+				printf("frame_rate[%d]\n", frame_rate);
+				xmlFree(property);
+				if (frame_rate != 0) {
+					if (*_dynamic == NULL) {
+						*_dynamic = malloc(sizeof(sprite));
+						if (*_dynamic == NULL) {
+							printf("malloc failure\n");
+							exit(EXIT_FAILURE);
+						}
+					}
+					else {
+						(*_dynamic)->next = malloc(sizeof(sprite));
+						if ((*_dynamic)->next == NULL) {
+							printf("malloc failure\n");
+							exit(EXIT_FAILURE);
+						}
+						*_dynamic = (*_dynamic)->next;
+					}
+					memset(*_dynamic, 0, sizeof(sprite));
+					sp = *_dynamic;
+				}
+				else {
+					if (*_static == NULL) {
+						*_static = malloc(sizeof(sprite));
+						if (*_static == NULL) {
+							printf("malloc failure\n");
+							exit(EXIT_FAILURE);
+						}
+					}
+					else {
+						(*_static)->next = malloc(sizeof(sprite));
+						if ((*_static)->next == NULL) {
+							printf("malloc failure\n");
+							exit(EXIT_FAILURE);
+						}
+						*_static = (*_static)->next;
+					}
+					memset(*_static, 0, sizeof(sprite));
+					sp = *_static;
+				}
+				sp->frame_rate = frame_rate;
+			}
 			if (!xmlStrcmp(cur_node->name, (u8 *)"sprite")) {
 				property = xmlGetProp(cur_node, (u8 *)"frame_number");
 				sp->frame_number = atoi((char *)property);
@@ -175,31 +214,52 @@ static s32 *xml_graphics_processor(xmlNode *node, sprite *sp)
 			}
 			if (!xmlStrcmp(cur_node->name, (u8 *)"sprite")) {
 				sp->name = xmlGetProp(cur_node, (u8 *)"name");
-				printf("name[%d]\n", sp->name);
+				printf("name[%s]\n", sp->name);
 			}
 			if (!xmlStrcmp(cur_node->name, (u8 *)"sprite")) {
-				sp->next = xml_sprite_processor(cur_node->children);
-				sp = sp->next;
-				continue;
+				xml_sprite_processor(cur_node->children, sp);
 			}
 		}
-
-		xml_node_processor(cur_node->children, sp);
 	}
 
 	return EXIT_SUCCESS;
 }
 
-static s32 sprite_renderer(sprite *sp, SDL_Surface *area)
+static scene *xml_node_processor(xmlNode *node)
+{
+	xmlNode *cur_node = NULL;
+	scene *sc;
+
+	sc = malloc(sizeof(scene));
+	if (sc == NULL) {
+		printf("malloc failure\n");
+		return NULL;
+	}
+	memset(sc, 0, sizeof(scene));
+
+	for (cur_node = node; cur_node; cur_node = cur_node->next) {
+		if (cur_node->type == XML_ELEMENT_NODE) {
+			printf("node name[%s]\n", cur_node->name);
+			if (!xmlStrcmp(cur_node->name, (u8 *)"graphics")) {
+				xml_graphics_processor(cur_node->children, sc);
+			}
+		}
+	}
+
+	return sc;
+}
+
+static s32 sprite_renderer(scene *sc, SDL_Surface *area)
 {
 	SDL_Surface *image, *image_format;
 	SDL_Rect DestR;
-	sprite *next = NULL;
+	sprite *sp;
 
-	for (next = sp->next; next != NULL; next = next->next) {
-		image = IMG_Load((char *)next->file_name);
+	sp = sc->sp_static;
+	for (; sp != NULL; sp = sp->next) {
+		image = IMG_Load((char *)sp->frame->file_name);
 		if (image == NULL) {
-			fprintf(stderr, "Couldn't load %s: %s\n", next->file_name, SDL_GetError());
+			fprintf(stderr, "Couldn't load %s: %s\n", sp->frame->file_name, SDL_GetError());
 			exit(EXIT_FAILURE);
 		}
 
@@ -220,8 +280,8 @@ static s32 sprite_renderer(sprite *sp, SDL_Surface *area)
 			exit(EXIT_FAILURE);
 		}
 
-		DestR.x = next->pos_x;
-		DestR.y = next->pos_y;
+		DestR.x = sp->x_pos;
+		DestR.y = sp->y_pos;
 
 		/* Blit onto the screen surface */
 		if(SDL_BlitSurface(image_format, NULL, area, &DestR) < 0) {
@@ -229,7 +289,44 @@ static s32 sprite_renderer(sprite *sp, SDL_Surface *area)
 			exit(EXIT_FAILURE);
 		}
 
-		SDL_UpdateRect(area, next->pos_x, next->pos_y, image_format->w, image_format->h);
+		SDL_UpdateRect(area, sp->x_pos, sp->y_pos, image_format->w, image_format->h);
+	}
+
+	sp = sc->sp_dynamic;
+	for (; sp != NULL; sp = sp->next) {
+		image = IMG_Load((char *)sp->frame->file_name);
+		if (image == NULL) {
+			fprintf(stderr, "Couldn't load %s: %s\n", sp->frame->file_name, SDL_GetError());
+			exit(EXIT_FAILURE);
+		}
+
+		/*
+		 * Palettized screen modes will have a default palette (a standard
+		 * 8*8*4 colour cube), but if the image is palettized as well we can
+		 * use that palette for a nicer colour matching
+		 */
+		if (image->format->palette && area->format->palette) {
+			SDL_SetColors(area, image->format->palette->colors, 0,
+					image->format->palette->ncolors);
+		}
+
+		image_format = SDL_DisplayFormat(image);
+		if (image_format == NULL) {
+			fprintf(stderr, "Couldn't convert to display format: out of memory\n");
+			SDL_FreeSurface(image);
+			exit(EXIT_FAILURE);
+		}
+
+		DestR.x = sp->x_pos;
+		DestR.y = sp->y_pos;
+
+		/* Blit onto the screen surface */
+		if(SDL_BlitSurface(image_format, NULL, area, &DestR) < 0) {
+			fprintf(stderr, "BlitSurface error: %s\n", SDL_GetError());
+			exit(EXIT_FAILURE);
+		}
+
+		SDL_UpdateRect(area, sp->x_pos, sp->y_pos, image_format->w, image_format->h);
 	}
 
 	return EXIT_SUCCESS;
@@ -239,13 +336,11 @@ int main(int argc, char **argv)
 {
 	xmlDoc *doc = NULL;
 	xmlNode *root_element = NULL;
-	sprite root_node;
-	sprite *next = NULL;
-	background bg;
-	SDL_Surface *screen, *background, *background_format;
-	SDL_Rect DestR;
+	scene *sc = NULL;
+	SDL_Surface *screen;
 	SDL_Event event;
 	s32 quit = 0;
+	u32 width = 0, height = 0;
 
 	if (argc != 2) {
 		printf("args != 2\n");
@@ -268,9 +363,7 @@ int main(int argc, char **argv)
 	/*Get the root element node */
 	root_element = xmlDocGetRootElement(doc);
 
-	xml_node_processor(root_element, &root_node, &bg);
-	for (next = root_node.next; next != NULL; next = next->next)
-		printf("file_name[%s] pos_x[%d] pos_y[%d]\n", next->file_name, next->pos_x, next->pos_y);
+	sc = xml_node_processor(root_element);
 
 	/*free the document */
 	xmlFreeDoc(doc);
@@ -291,47 +384,18 @@ int main(int argc, char **argv)
 	atexit(SDL_Quit);
 
 	/* Have a preference for 8-bit, but accept any depth */
-	screen = SDL_SetVideoMode(bg.size_x, bg.size_y, 8, SDL_SWSURFACE|SDL_ANYFORMAT);
+	width = sc->sp_static->frame->contour->width;
+	height = sc->sp_static->frame->contour->height;
+	printf("name[%s]\n", sc->sp_static->name);
+	printf("next name[%s]\n", sc->sp_static->next->name);
+	exit(EXIT_FAILURE);
+	screen = SDL_SetVideoMode(width, height, 8, SDL_SWSURFACE|SDL_ANYFORMAT);
 	if (screen == NULL) {
-		fprintf(stderr, "Couldn't set 800x400x8 video mode: %s\n", SDL_GetError());
+		fprintf(stderr, "Couldn't set %dx%dx8 video mode: %s\n", width, height, SDL_GetError());
 		exit(EXIT_FAILURE);
 	}
 
-	background = IMG_Load((char *)bg.file_name);
-	if (background == NULL) {
-		fprintf(stderr, "Couldn't load %s: %s\n", argv[1], SDL_GetError());
-		exit(EXIT_FAILURE);
-	}
-
-	/*
-	 * Palettized screen modes will have a default palette (a standard
-	 * 8*8*4 colour cube), but if the image is palettized as well we can
-	 * use that palette for a nicer colour matching
-	 */
-	if (background->format->palette && screen->format->palette) {
-		SDL_SetColors(screen, background->format->palette->colors, 0,
-				background->format->palette->ncolors);
-	}
-
-	background_format = SDL_DisplayFormat(background);
-	if (background_format == NULL) {
-		fprintf(stderr, "Couldn't convert to display format: out of memory\n");
-		SDL_FreeSurface(background);
-		exit(EXIT_FAILURE);
-	}
-
-	DestR.x = 0;
-	DestR.y = 0;
-
-	/* Blit onto the screen surface */
-	if(SDL_BlitSurface(background_format, NULL, screen, &DestR) < 0) {
-		fprintf(stderr, "BlitSurface error: %s\n", SDL_GetError());
-		return EXIT_FAILURE;
-	}
-
-	SDL_UpdateRect(screen, 0, 0, background->w, background->h);
-
-	sprite_renderer(&root_node, screen);
+	sprite_renderer(sc, screen);
 
 	/* Enable Unicode translation */
 	SDL_EnableUNICODE(1);
