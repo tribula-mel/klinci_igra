@@ -23,56 +23,43 @@ static s32 xml_contour_processor(xmlNode *node, sprite_frame *frame)
 {
 	xmlNode *cur_node = NULL;
 	xmlChar *property;
-	sprite_contour *contour = NULL;
-	sprite_contour *contour_prev = NULL;
-
-	contour = malloc(sizeof(sprite_contour));
-	if (contour == NULL) {
-		printf("malloc failure\n");
-		exit(EXIT_FAILURE);
-	}
-	frame->contour = contour;
-	contour_prev = contour;
-	contour->next = NULL;
+	sprite_contour **contour = &frame->contour;
 
 	for (cur_node = node; cur_node; cur_node = cur_node->next) {
 		if (cur_node->type == XML_ELEMENT_NODE) {
 			if (!xmlStrcmp(cur_node->name, (u8 *)"rectangle")) {
+				*contour = malloc(sizeof(sprite_contour));
+				if (*contour == NULL) {
+					/* TODO: fix the leak */
+					printf("malloc failure\n");
+					exit(EXIT_FAILURE);
+				}
+				memset(*contour, 0, sizeof(sprite_contour));
+
 				property = xmlGetProp(cur_node, (u8 *)"x");
-				contour->x_offset = atoi((char *)property);
-				printf("x_offset[%d]\n", contour->x_offset);
+				(*contour)->x_offset = atoi((char *)property);
+				printf("x_offset[%d]\n", (*contour)->x_offset);
 				xmlFree(property);
 			}
 			if (!xmlStrcmp(cur_node->name, (u8 *)"rectangle")) {
 				property = xmlGetProp(cur_node, (u8 *)"y");
-				contour->y_offset = atoi((char *)property);
-				printf("y_offset[%d]\n", contour->y_offset);
+				(*contour)->y_offset = atoi((char *)property);
+				printf("y_offset[%d]\n", (*contour)->y_offset);
 				xmlFree(property);
 			}
 			if (!xmlStrcmp(cur_node->name, (u8 *)"rectangle")) {
 				property = xmlGetProp(cur_node, (u8 *)"width");
-				contour->width = atoi((char *)property);
-				printf("width[%d]\n", contour->width);
+				(*contour)->width = atoi((char *)property);
+				printf("width[%d]\n", (*contour)->width);
 				xmlFree(property);
 			}
 			if (!xmlStrcmp(cur_node->name, (u8 *)"rectangle")) {
 				property = xmlGetProp(cur_node, (u8 *)"height");
-				contour->height = atoi((char *)property);
-				printf("height[%d]\n", contour->height);
+				(*contour)->height = atoi((char *)property);
+				printf("height[%d]\n\n", (*contour)->height);
 				xmlFree(property);
 			}
-		}
-
-		if (cur_node->next != NULL) {
-			contour = malloc(sizeof(sprite_contour));
-			if (contour == NULL) {
-				/* TODO: fix the leak */
-				printf("malloc failure\n");
-				exit(EXIT_FAILURE);
-			}
-			contour_prev->next = contour;
-			contour->next = NULL;
-			contour_prev = contour;
+			contour = &(*contour)->next;
 		}
 	}
 
@@ -83,7 +70,6 @@ static s32 xml_frame_processor(xmlNode *node, sprite *sp)
 {
 	xmlNode *cur_node = NULL;
 	sprite_frame *frame = NULL;
-	sprite_frame *pframe = NULL;
 
 	frame = malloc(sp->frame_number * sizeof(sprite_frame));
 	if (frame == NULL) {
@@ -92,7 +78,7 @@ static s32 xml_frame_processor(xmlNode *node, sprite *sp)
 	}
 	sp->frame = frame;
 	frame->contour = NULL;
-	pframe = frame;
+	memset(frame, 0, sp->frame_number * sizeof(sprite_frame));
 
 	for (cur_node = node; cur_node; cur_node = cur_node->next) {
 		if (cur_node->type == XML_ELEMENT_NODE) {
@@ -104,6 +90,7 @@ static s32 xml_frame_processor(xmlNode *node, sprite *sp)
 				xml_contour_processor(cur_node->children, frame);
 			}
 		}
+		/* frame = frame + sizeof(sprite_frame); */
 	}
 
 	return EXIT_SUCCESS;
@@ -114,6 +101,7 @@ static s32 xml_sprite_processor(xmlNode *node, sprite *sp)
 	xmlNode *cur_node = NULL;
 	xmlChar *property;
 
+	printf("%s\n", __func__);
 	for (cur_node = node; cur_node; cur_node = cur_node->next) {
 		if (cur_node->type == XML_ELEMENT_NODE) {
 			if (!xmlStrcmp(cur_node->name, (u8 *)"position")) {
@@ -180,7 +168,7 @@ static s32 xml_graphics_processor(xmlNode *node, scene *sc)
 							printf("malloc failure\n");
 							exit(EXIT_FAILURE);
 						}
-						*_dynamic = (*_dynamic)->next;
+						_dynamic = &(*_dynamic)->next;
 					}
 					memset(*_dynamic, 0, sizeof(sprite));
 					sp = *_dynamic;
@@ -199,7 +187,7 @@ static s32 xml_graphics_processor(xmlNode *node, scene *sc)
 							printf("malloc failure\n");
 							exit(EXIT_FAILURE);
 						}
-						*_static = (*_static)->next;
+						_static = &(*_static)->next;
 					}
 					memset(*_static, 0, sizeof(sprite));
 					sp = *_static;
@@ -386,9 +374,14 @@ int main(int argc, char **argv)
 	/* Have a preference for 8-bit, but accept any depth */
 	width = sc->sp_static->frame->contour->width;
 	height = sc->sp_static->frame->contour->height;
-	printf("name[%s]\n", sc->sp_static->name);
-	printf("next name[%s]\n", sc->sp_static->next->name);
-	exit(EXIT_FAILURE);
+printf("\nname[%s]\n", sc->sp_static->name);
+printf("frame_number[%d]\n", sc->sp_static->frame_number);
+printf("frame_rate[%d]\n", sc->sp_static->frame_rate);
+printf("x_pos[%d]\n", sc->sp_static->x_pos);
+printf("y_pos[%d]\n", sc->sp_static->y_pos);
+printf("attrs move[%d] intelli[%d]\n", sc->sp_static->attrs.moveable, sc->sp_static->attrs.intelligence);
+printf("file_name[%s]\n", sc->sp_static->frame->file_name);
+printf("width[%d] height[%d]\n", width, height);
 	screen = SDL_SetVideoMode(width, height, 8, SDL_SWSURFACE|SDL_ANYFORMAT);
 	if (screen == NULL) {
 		fprintf(stderr, "Couldn't set %dx%dx8 video mode: %s\n", width, height, SDL_GetError());

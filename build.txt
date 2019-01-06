@@ -1,0 +1,1 @@
+gcc -Wall -o renderer renderer.c `xml2-config --cflags --libs` `sdl-config --cflags --libs` -lSDL_image

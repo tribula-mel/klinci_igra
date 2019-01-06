@@ -32,7 +32,7 @@
 		</frame>
 	</sprite>
 	<sprite frame_number="2" frame_rate="100" name="smurf_left">
-		<position x="50" y="50"/>
+		<position x="80" y="80"/>
 		<attributes moveable="0" intelligence="0"/>
 		<frame>
 			<file name="gfx/anim/smurf_left_first_frame.png"/>
@@ -48,7 +48,7 @@
 		</frame>
 	</sprite>
 	<sprite frame_number="2" frame_rate="100" name="smurf_right">
-		<position x="50" y="50"/>
+		<position x="150" y="50"/>
 		<attributes moveable="0" intelligence="0"/>
 		<frame>
 			<file name="gfx/anim/smurf_right_first_frame.png"/>
