@@ -1,0 +1,3 @@
+# klinci_igra
+Nekada davno klinci su trazili da im napravim igru. Ovo je bio pocetak ...
+Nikada zavrsena igra, mozda se nekada vratim kodiranju.
